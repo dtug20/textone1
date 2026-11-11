@@ -1,4 +1,3 @@
-import { tr } from "date-fns/locale";
 import { useState, useRef, useCallback, useEffect } from "react";
 import RecordRTCType from "recordrtc";
 import WaveSurfer from "wavesurfer.js";

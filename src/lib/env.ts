@@ -12,6 +12,9 @@ export const env = createEnv({
         CHATTERBOX_API_URL: z.url(),
         CHATTERBOX_API_KEY: z.string().min(1),
         VITERBOX_API_URL: z.url(),
+        // Resident Piper voice on the LAN GPU host. Vietnamese synthesis uses it
+        // when set; English keeps the Chatterbox endpoint.
+        FAST_TTS_API_URL: z.url().optional(),
     },
     client: {
         NEXT_PUBLIC_R2_PUBLIC_URL: z.string().url(),

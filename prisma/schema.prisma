@@ -12,6 +12,16 @@ datasource db {
   provider = "postgresql"
 }
 
+model RealtimeSession {
+  id            String   @id
+  orgId         String   @unique
+  expiresAt     DateTime
+  nextAllowedAt DateTime @default(now())
+  chunks        Int      @default(0)
+
+  @@index([orgId, expiresAt])
+}
+
 enum VoiceVariant {
   SYSTEM
   CUSTOM
@@ -76,4 +86,35 @@ model Generation {
 
   @@index([voiceId])
   @@index([orgId])
+}
+
+model TranslatedVideo {
+  id          String @id @default(cuid())
+  sessionId   String @unique
+  orgId       String
+  title       String
+  sourceUrl   String
+  source      String
+  target      String
+  createdAt   DateTime @default(now())
+  segments    TranslatedVideoSegment[]
+
+  @@index([orgId, createdAt])
+}
+
+model TranslatedVideoSegment {
+  id          String @id @default(cuid())
+  videoId     String
+  video       TranslatedVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  sequence    Int
+  sourceStart Float
+  duration    Float
+  speechStart Float?
+  speechEnd   Float?
+  text        String
+  translation String
+  videoKey    String
+  audioKey    String?
+
+  @@unique([videoId, sequence])
 }

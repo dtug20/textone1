@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from "react";
+import { useState } from "react";
 import { Pause, Play, Download, Redo, Undo } from "lucide-react";
 import { format } from "date-fns";
 
@@ -40,6 +40,7 @@ export function VoicePreviewPanel({
         containerRef,
         isPlaying,
         isReady,
+        error,
         currentTime,
         duration,
         togglePlayPause,
@@ -79,7 +80,12 @@ export function VoicePreviewPanel({
             </div>
             {/* Content */}
             <div className="relative flex flex-1 items-center justify-center">
-                {!isReady && (
+                {error && (
+                    <p role="alert" className="p-6 text-center text-sm text-destructive">
+                        {error}
+                    </p>
+                )}
+                {!isReady && !error && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
                         <Badge
                             variant="outline"
@@ -146,6 +152,8 @@ export function VoicePreviewPanel({
                             size="icon-lg"
                             className="rounded-full"
                             onClick={togglePlayPause}
+                            disabled={!isReady}
+                            aria-label={isPlaying ? "Tạm dừng" : "Phát âm thanh"}
                         >
                             {isPlaying ? (
                                 <Pause className="fill-background" />

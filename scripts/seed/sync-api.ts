@@ -16,7 +16,7 @@ import "dotenv/config";
 import openapiTS, { astToString } from "openapi-typescript";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = path.resolve(__dirname, "../src/types/chatterbox-api.d.ts");
+const OUTPUT_PATH = path.resolve(__dirname, "../../src/types/chatterbox-api.d.ts");
 
 async function main() {
     const apiUrl = process.env.CHATTERBOX_API_URL;

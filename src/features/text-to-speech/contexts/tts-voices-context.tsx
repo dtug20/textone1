@@ -4,7 +4,6 @@ import { createContext, useContext } from "react";
 import type { inferRouterOutputs } from "@trpc/server";
 
 import type { AppRouter } from "@/trpc/routers/_app";
-import { useTRPC } from "@/trpc/client";
 
 type TTSVoiceItem =
     inferRouterOutputs<AppRouter>["voices"]["getAll"]["custom"][number];

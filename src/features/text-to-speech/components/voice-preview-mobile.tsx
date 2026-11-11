@@ -35,7 +35,6 @@ export function VoicePreviewMobile({
         const handlePlay = () => setIsPlaying(true);
         const handlePause = () => setIsPlaying(false);
         const handleEnded = () => setIsPlaying(false);
-        // Fallback: some mobile browsers don't fire 'ended' reliably
         const handleTimeUpdate = () => {
             if (audio.currentTime >= audio.duration && audio.duration > 0) {
                 setIsPlaying(false);

@@ -15,6 +15,7 @@ interface UseWaveSurferReturn {
     containerRef: React.RefObject<HTMLDivElement | null>;
     isPlaying: boolean;
     isReady: boolean;
+    error: string | null;
     currentTime: number;
     duration: number;
     togglePlayPause: () => void;
@@ -34,6 +35,7 @@ export function useWaveSurfer({
 
     const [isPlaying, setIsPlaying] = useState(false);
     const [isReady, setIsReady] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
 
@@ -46,6 +48,11 @@ export function useWaveSurfer({
         }
 
         let destroyed = false;
+        setIsReady(false);
+        setIsPlaying(false);
+        setDuration(0);
+        setCurrentTime(0);
+        setError(null);
 
         const ws = WaveSurfer.create({
             container: containerRef.current,
@@ -81,12 +88,14 @@ export function useWaveSurfer({
 
         ws.on("error", (error) => {
             if (destroyed) return;
+            setError("Không tải được âm thanh. Vui lòng kiểm tra kết nối hoặc thử tải lại trang.");
             console.error("WaveSurfer error:", error);
             onError?.(new Error(String(error)));
         });
 
         ws.load(url).catch((error) => {
             if (destroyed) return;
+            setError("Không tải được âm thanh. Vui lòng kiểm tra kết nối hoặc thử tải lại trang.");
             console.error("Wavesurfer load error", error);
             onError?.(new Error(String(error)));
         });
@@ -123,6 +132,7 @@ export function useWaveSurfer({
         containerRef,
         isPlaying,
         isReady,
+        error,
         currentTime,
         duration,
         togglePlayPause,

@@ -11,6 +11,8 @@ const isOrgSelectionRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+    // Extension chunks authenticate with a short-lived, signed session capability.
+    if (/^\/api\/realtime\/(?:chunk|ready|pipeline|lan-tts|videos(?:\/[^/]+\/segments)?)$/.test(req.nextUrl.pathname)) return NextResponse.next();
     const { userId, orgId } = await auth();
 
     // Allow public routes
