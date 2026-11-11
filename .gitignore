@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.pytest_cache/
 
 # next.js
 /.next/
@@ -46,15 +47,20 @@ next-env.d.ts
 /src/generated/prisma
 
 /scripts/system-voices
+/scripts/seed/system-voices
 
-__pycache__
+__pycache__/
 
-# Modal
-chatterbox_tts.py
-
-# Sentry Config File
-.env.sentry-build-plugin
-chatterbox_tts.py
+# Modal standalone scripts
 chatterbox_tts.py
 viterbox_tts.py
 viterbox-integration-guide-v2.md
+
+# Sentry Config File
+.env.sentry-build-plugin
+
+# Local CodeGraph index
+/.codegraph/
+
+# TexTone dev bridge logs
+/tmp/

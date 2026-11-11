@@ -1,0 +1,1 @@
+ALTER TABLE "TranslatedVideoSegment" ADD COLUMN "speechStart" DOUBLE PRECISION, ADD COLUMN "speechEnd" DOUBLE PRECISION;

@@ -1,0 +1,9 @@
+faster-whisper==1.2.1
+ctranslate2==4.6.0
+transformers==4.50.3
+torch==2.6.0
+sentencepiece==0.2.0
+fastapi[standard]==0.124.4
+httpx==0.28.1
+PySide6-Essentials==6.8.3
+yt-dlp==2026.8.19

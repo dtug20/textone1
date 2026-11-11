@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "TexTone",
+  "version": "0.9.5",
+  "minimum_chrome_version": "116",
+  "description": "Ghép phụ đề tiếng Anh thành câu, dịch và phát thuyết minh đồng bộ theo timestamp YouTube.",
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "offscreen",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+    "https://textone.id.vn/*",
+    "https://media.textone.id.vn/*",
+    "http://192.168.1.198/*",
+    "http://localhost/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://192.168.1.198/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"],
+      "js": ["content/youtube-timedtext-hook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://textone.id.vn/*", "http://localhost/*"],
+      "js": ["content/web-tts-bridge.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://textone.id.vn/*"],
+      "js": ["content/web-tts-main.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "TexTone — Chép lời và thuyết minh"
+  },
+  "short_name": "TexTone"
+}

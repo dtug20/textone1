@@ -32,10 +32,10 @@ import {
     Volume2,
     Settings,
     Headphones,
+    Video,
     type LucideIcon
 } from "lucide-react";
 import Link from "next/link";
-import { UsageContainer } from "@/features/billing/components/usage-container";
 import { VoiceCreateDialog } from "@/features/voices/components/voice-create-dialog";
 import { useState } from "react";
 
@@ -121,6 +121,16 @@ export function DashboardSidebar() {
             icon: AudioLines
         },
         {
+            title: "Realtime speech",
+            url: "/realtime",
+            icon: Headphones
+        },
+        {
+            title: "Video đã dịch",
+            url: "/videos",
+            icon: Video
+        },
+        {
             title: "Voice cloning",
             icon: Volume2,
             onClick: () => setVoiceDialogOpen(true),
@@ -201,7 +211,6 @@ export function DashboardSidebar() {
                 </SidebarContent>
                 <div className="border-b border-dashed border-border" />
                 <SidebarFooter className="gap-3 py-3">
-                    <UsageContainer />
                     <SidebarMenu>
                         <SidebarMenuItem>
                             <UserButton

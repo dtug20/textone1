@@ -3,9 +3,6 @@ import { createEnv } from "@t3-oss/env-nextjs";
 
 export const env = createEnv({
     server: {
-        POLAR_ACCESS_TOKEN: z.string().min(1),
-        POLAR_SERVER: z.enum(["sandbox", "production"]).default("sandbox"),
-        POLAR_PRODUCT_ID: z.string().min(1),
         DATABASE_URL: z.string().min(1),
         APP_URL: z.string().min(1),
         R2_ACCOUNT_ID: z.string().min(1),
@@ -15,6 +12,9 @@ export const env = createEnv({
         CHATTERBOX_API_URL: z.url(),
         CHATTERBOX_API_KEY: z.string().min(1),
         VITERBOX_API_URL: z.url(),
+        // Resident Piper voice on the LAN GPU host. Vietnamese synthesis uses it
+        // when set; English keeps the Chatterbox endpoint.
+        FAST_TTS_API_URL: z.url().optional(),
     },
     experimental__runtimeEnv: {},
     skipValidation: !!process.env.SKIP_ENV_VALIDATION,

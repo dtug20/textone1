@@ -39,6 +39,9 @@ export function useAudioPlayback(src: string | File | null) {
             audioRef.current.play().then(() => {
                 setIsPlaying(true);
                 setIsLoading(false);
+            }).catch(() => {
+                setIsPlaying(false);
+                setIsLoading(false);
             });
         }
     }, [src, isPlaying]);

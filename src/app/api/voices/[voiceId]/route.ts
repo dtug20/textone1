@@ -9,7 +9,7 @@ export async function GET(
     const { userId, orgId } = await auth();
 
     if (!userId || !orgId) {
-        throw new Response("Unauthorized", { status: 401 });
+        return new Response("Unauthorized", { status: 401 });
     }
 
     const { voiceId } = await params;
@@ -24,7 +24,7 @@ export async function GET(
     });
 
     if (!voice) {
-        throw new Response("Not Found", { status: 404 });
+        return new Response("Not Found", { status: 404 });
     }
 
     if (voice.variant === "CUSTOM" && voice.orgId !== orgId) {
@@ -39,7 +39,7 @@ export async function GET(
     const audioResponse = await fetch(signedUrl);
 
     if (!audioResponse.ok) {
-        throw new Response("Failed to fetch voice audio", { status: 502 });
+        return new Response("Failed to fetch voice audio", { status: 502 });
     }
 
     const contentType = audioResponse.headers.get("content-type") || "audio/wav";

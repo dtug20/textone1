@@ -1,0 +1,63 @@
+services:
+  fast-tts:
+    build:
+      context: .
+      dockerfile: Dockerfile.tts
+    image: textone-piper-vi:20261108
+    restart: unless-stopped
+    cpus: 16
+    mem_limit: 1536m
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8803/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    ports:
+      - '127.0.0.1:18803:8803'
+      - '192.168.1.198:18803:8803'
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  speech:
+    build: .
+    image: textone-lan:20261108
+    restart: unless-stopped
+    gpus: all
+    cpus: 4
+    mem_limit: 8g
+    env_file: .env
+    environment:
+      WHISPER_MODEL: large-v3-turbo
+      WHISPER_COMPUTE_TYPE: float16
+      TRANSLATION_MODEL: VietAI/envit5-translation
+    volumes:
+      - ./models:/models
+    ports:
+      - '127.0.0.1:18801:8801'
+      - '192.168.1.198:18801:8801'
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  gateway:
+    image: textone-lan:20261108
+    restart: unless-stopped
+    cpus: 2
+    mem_limit: 1g
+    env_file: .env
+    environment:
+      REALTIME_API_URL: http://speech:8801
+      FAST_TTS_API_URL: http://fast-tts:8803
+      FAST_TTS_LENGTH_SCALE: '0.76'
+      CAPTION_READ_AHEAD_SECONDS: '60'
+    depends_on:
+      fast-tts:
+        condition: service_healthy
+    # The host is shared and often heavily loaded; the 20 s default ping timeout
+    # dropped live narration sessions.
+    command: [uvicorn, 'gateway_app:serve', --factory, --host, 0.0.0.0, --port, '8802', --workers, '1', --ws-ping-interval, '20', --ws-ping-timeout, '90']
+    ports:
+      - '127.0.0.1:18802:8802'
+      - '192.168.1.198:18802:8802'
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}

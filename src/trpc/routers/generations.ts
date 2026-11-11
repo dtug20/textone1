@@ -1,6 +1,5 @@
 import * as Sentry from '@sentry/node';
 import { z } from "zod";
-import { polar } from '@/lib/polar';
 import { TRPCError } from "@trpc/server";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -57,26 +56,6 @@ export const generationsRouter = createTRPCRouter({
             })
         )
         .mutation(async ({ input, ctx }) => {
-            // Check for active subcription before generation
-            try {
-                const customerState = await polar.customers.getStateExternal({
-                    externalId: ctx.orgId,
-                });
-                const hasActiveSubcriptions = (customerState.activeSubscriptions ?? []).length > 0;
-                if (!hasActiveSubcriptions) {
-                    throw new TRPCError({
-                        code: "FORBIDDEN",
-                        message: "SUBSCRIPTION_REQUIRED",
-                    });
-                }
-            } catch (err) {
-                if (err instanceof TRPCError) throw err;
-                // Customer doesnt exist in Polar yet -> no subsciption
-                throw new TRPCError({
-                    code: "FORBIDDEN",
-                    message: "SUBSCRIPTION_REQUIRED"
-                });
-            }
             const voice = await prisma.voice.findUnique({
                 where: {
                     id: input.voiceId,
@@ -89,6 +68,7 @@ export const generationsRouter = createTRPCRouter({
                     id: true,
                     name: true,
                     r2ObjectKey: true,
+                    language: true,
                 },
             });
 
@@ -107,7 +87,7 @@ export const generationsRouter = createTRPCRouter({
             // ── Language detection (server-side, authoritative) ─────────────
             const detectedLang = detectLanguage(input.text);
             const isMixed = isMixedLanguage(input.text);
-            const useViterbox = detectedLang === "vi";
+            const useViterbox = detectedLang === "vi" || voice.language.toLowerCase().startsWith("vi");
 
             Sentry.logger.info("Generation started", {
                 orgId: ctx.orgId,
@@ -191,22 +171,6 @@ export const generationsRouter = createTRPCRouter({
                 message: "Failed to store generated audio",
             });
 
-            // Ingest usage event to Polar
-            polar.events
-                .ingest({
-                    events: [
-                        {
-                            name: "tts_generation",
-                            externalCustomerId: ctx.orgId,
-                            metadata: { characters: input.text.length },
-                            timestamp: new Date(),
-                        },
-                    ],
-                })
-                .catch(() => {
-                    // Silently fail
-                })
-
             return { id: generationId };
         }),
 });
@@ -217,6 +181,14 @@ async function callChatterbox(
     voiceKey: string,
     params: { temperature: number; topP: number; topK: number; repetitionPenalty: number },
 ): Promise<ArrayBuffer> {
+    const fastTts = process.env.FAST_TTS_API_URL?.replace(/\/$/, "");
+    if (fastTts) {
+        try {
+            return await synthesizeWithPiper(fastTts, text, "en");
+        } catch {
+            // Fall back to public cloud endpoint when LAN host is unreachable.
+        }
+    }
     const res = await fetch(`${env.CHATTERBOX_API_URL}/generate`, {
         method: "POST",
         headers: {
@@ -245,12 +217,73 @@ async function callChatterbox(
     return res.arrayBuffer();
 }
 
+function spokenPieces(text: string) {
+    const limit = 900;
+    const pieces: string[] = [];
+    let rest = text.trim();
+    while (rest.length > limit) {
+        const cut = Math.max(rest.lastIndexOf("\n", limit), rest.lastIndexOf(". ", limit), rest.lastIndexOf(" ", limit));
+        const at = cut > 0 ? cut : limit;
+        pieces.push(rest.slice(0, at).trim());
+        rest = rest.slice(at).trim();
+    }
+    if (rest) pieces.push(rest);
+    return pieces;
+}
+
+function joinWav(parts: Buffer[]) {
+    if (parts.length === 1) return parts[0];
+    const pcm = parts.map(part => {
+        const marker = part.indexOf("data");
+        const size = marker >= 0 ? part.readUInt32LE(marker + 4) : 0;
+        return marker >= 0 ? part.subarray(marker + 8, marker + 8 + size) : part.subarray(44);
+    });
+    const body = Buffer.concat(pcm);
+    const header = Buffer.from(parts[0].subarray(0, 44));
+    header.writeUInt32LE(36 + body.length, 4);
+    header.writeUInt32LE(body.length, 40);
+    return Buffer.concat([header, body]);
+}
+
+async function synthesizeWithPiper(endpoint: string, text: string, language: "vi" | "en" = "vi"): Promise<ArrayBuffer> {
+    const wavs: Buffer[] = [];
+    const lengthScale = language === "vi" ? 0.76 : 0.92;
+    for (const piece of spokenPieces(text)) {
+        const res = await fetch(`${endpoint}/synthesize`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: piece, length_scale: lengthScale, language }),
+        });
+        if (!res.ok) {
+            const detail = await res.text();
+            throw new TRPCError({
+                code: "INTERNAL_SERVER_ERROR",
+                message: `TTS error ${res.status}: ${detail}`,
+            });
+        }
+        wavs.push(Buffer.from(await res.arrayBuffer()));
+    }
+    const wav = joinWav(wavs);
+    if (wav.length < 44 || wav.toString("ascii", 0, 4) !== "RIFF") {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "TTS returned invalid audio" });
+    }
+    return Uint8Array.from(wav).buffer;
+}
+
 // ── Viterbox (Vietnamese + code-switching) ──────────────────────────────────
 async function callViterbox(
     text: string,
     voiceKey: string,
     params: { temperature: number; topP: number; repetitionPenalty: number },
 ): Promise<ArrayBuffer> {
+    const fastTts = process.env.FAST_TTS_API_URL?.replace(/\/$/, "");
+    if (fastTts) {
+        try {
+            return await synthesizeWithPiper(fastTts, text, "vi");
+        } catch {
+            // Fall back to public cloud endpoint when LAN host is unreachable.
+        }
+    }
     const res = await fetch(`${env.VITERBOX_API_URL}/generate`, {
         method: "POST",
         headers: {
@@ -265,8 +298,8 @@ async function callViterbox(
             language: "vi",
             exaggeration: 0.5,
             cfg_weight: 0.5,
-            temperature: params.temperature,
-            top_p: params.topP,
+            temperature: Math.min(params.temperature, 1.0),
+            top_p: Math.min(params.topP, 1.0),
             repetition_penalty: params.repetitionPenalty,
             sentence_pause_ms: 500,
             crossfade_ms: 50,
