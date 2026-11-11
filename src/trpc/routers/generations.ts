@@ -181,11 +181,12 @@ async function callChatterbox(
     params: { temperature: number; topP: number; topK: number; repetitionPenalty: number },
 ): Promise<ArrayBuffer> {
     const fastTts = process.env.FAST_TTS_API_URL?.replace(/\/$/, "");
-    if (fastTts) {
+    for (const candidate of [fastTts, "https://dtug20--textone-pipeline-serve.modal.run"]) {
+        if (!candidate) continue;
         try {
-            return await synthesizeWithPiper(fastTts, text, "en");
+            return await synthesizeWithPiper(candidate, text, "en");
         } catch {
-            // Fall back to public cloud endpoint when LAN host is unreachable.
+            // Try next candidate or fall back to Chatterbox GPU endpoint.
         }
     }
     const res = await fetch(`${env.CHATTERBOX_API_URL}/generate`, {
@@ -247,11 +248,13 @@ function joinWav(parts: Buffer[]) {
 async function synthesizeWithPiper(endpoint: string, text: string, language: "vi" | "en" = "vi"): Promise<ArrayBuffer> {
     const wavs: Buffer[] = [];
     const lengthScale = language === "vi" ? 0.76 : 0.92;
+    const timeoutMs = endpoint.includes("192.168.") ? 2500 : 20000;
     for (const piece of spokenPieces(text)) {
         const res = await fetch(`${endpoint}/synthesize`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: piece, length_scale: lengthScale, language }),
+            signal: AbortSignal.timeout(timeoutMs),
         });
         if (!res.ok) {
             const detail = await res.text();
@@ -276,11 +279,12 @@ async function callViterbox(
     params: { temperature: number; topP: number; repetitionPenalty: number },
 ): Promise<ArrayBuffer> {
     const fastTts = process.env.FAST_TTS_API_URL?.replace(/\/$/, "");
-    if (fastTts) {
+    for (const candidate of [fastTts, "https://dtug20--textone-pipeline-serve.modal.run"]) {
+        if (!candidate) continue;
         try {
-            return await synthesizeWithPiper(fastTts, text, "vi");
+            return await synthesizeWithPiper(candidate, text, "vi");
         } catch {
-            // Fall back to public cloud endpoint when LAN host is unreachable.
+            // Try next candidate or fall back to Viterbox GPU endpoint.
         }
     }
     const res = await fetch(`${env.VITERBOX_API_URL}/generate`, {

@@ -88,19 +88,36 @@ export async function POST(request: Request) {
         const language = useVi ? "vi" : "en";
         const lengthScale = useVi ? 0.76 : 0.92;
         const fastTts = (process.env.FAST_TTS_API_URL || "http://192.168.1.198:18803").replace(/\/$/, "");
+        const publicTts = "https://dtug20--textone-pipeline-serve.modal.run";
+        const endpoints = Array.from(new Set([fastTts, publicTts]));
 
-        const wavs: Buffer[] = [];
-        for (const piece of spokenPieces(input.text)) {
-            const res = await fetch(`${fastTts}/synthesize`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: piece, length_scale: lengthScale, language }),
-            });
-            if (!res.ok) {
-                const detail = await res.text();
-                return Response.json({ error: `LAN TTS error ${res.status}: ${detail}` }, { status: 502, headers: CORS_HEADERS });
+        let wavs: Buffer[] | null = null;
+        let lastError = "TTS unavailable";
+        for (const baseUrl of endpoints) {
+            try {
+                const timeoutMs = baseUrl.includes("192.168.") ? 2500 : 20000;
+                const pieces: Buffer[] = [];
+                for (const piece of spokenPieces(input.text)) {
+                    const res = await fetch(`${baseUrl}/synthesize`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: piece, length_scale: lengthScale, language }),
+                        signal: AbortSignal.timeout(timeoutMs),
+                    });
+                    if (!res.ok) {
+                        const detail = await res.text();
+                        throw new Error(`TTS error ${res.status}: ${detail}`);
+                    }
+                    pieces.push(Buffer.from(await res.arrayBuffer()));
+                }
+                wavs = pieces;
+                break;
+            } catch (err) {
+                lastError = err instanceof Error ? err.message : String(err);
             }
-            wavs.push(Buffer.from(await res.arrayBuffer()));
+        }
+        if (!wavs) {
+            return Response.json({ error: lastError }, { status: 502, headers: CORS_HEADERS });
         }
 
         const buffer = joinWav(wavs);

@@ -22,12 +22,13 @@ export class PipelineSession {
     let selectedEndpoint = this.pipelineUrl || config.endpoint || '';
     if (!this.pipelineUrl) {
       const candidates = [
-        { health: 'http://192.168.1.198:18802/health', ws: 'ws://192.168.1.198:18802/stream' },
-        { health: 'http://localhost:18802/health', ws: 'ws://localhost:18802/stream' },
+        { health: 'http://192.168.1.198:18802/health', ws: 'ws://192.168.1.198:18802/stream', timeout: 1200 },
+        { health: 'http://localhost:18802/health', ws: 'ws://localhost:18802/stream', timeout: 1000 },
+        { health: 'https://dtug20--textone-pipeline-serve.modal.run/health', ws: 'wss://dtug20--textone-pipeline-serve.modal.run/stream', timeout: 5000 },
       ];
       for (const candidate of candidates) {
         const discovery = new AbortController();
-        const timer = setTimeout(() => discovery.abort(), 1200);
+        const timer = setTimeout(() => discovery.abort(), candidate.timeout);
         try {
           const local = await fetch(candidate.health, { signal: discovery.signal, cache: 'no-store' });
           if (local.ok) { selectedEndpoint = candidate.ws; break; }

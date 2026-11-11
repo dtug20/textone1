@@ -3,14 +3,29 @@ Deploy: modal deploy services/realtime/gateway/realtime_pipeline.py
 """
 import modal
 
+VOICE_COMMIT = 'c10ece1aade47bb51c153c893d14e5bf8e5b7117'
+VOICE_BASE = f'https://huggingface.co/rhasspy/piper-voices/resolve/{VOICE_COMMIT}'
+
 image = (modal.Image.debian_slim(python_version='3.11')
-         .apt_install('ffmpeg', 'libglib2.0-0')
-         .pip_install('fastapi[standard]==0.124.4', 'httpx==0.28.1', 'PySide6-Essentials==6.8.3', 'yt-dlp==2026.8.19')
+         .apt_install('ffmpeg', 'libglib2.0-0', 'curl', 'ca-certificates')
+         .pip_install('fastapi[standard]==0.124.4', 'httpx==0.28.1', 'PySide6-Essentials==6.8.3', 'yt-dlp==2026.8.19', 'piper-tts==1.8.0')
+         .run_commands(
+             f'mkdir -p /voices'
+             f' && curl -fL --retry 3 -o /voices/vi_VN-vais1000-medium.onnx "{VOICE_BASE}/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx"'
+             f' && curl -fsSL --retry 3 -o /voices/vi_VN-vais1000-medium.onnx.json "{VOICE_BASE}/vi/vi_VN/vais1000/medium/vi_VN-vais1000-medium.onnx.json"'
+             f' && curl -fsSL --retry 3 -o /voices/MODEL_CARD "{VOICE_BASE}/vi/vi_VN/vais1000/medium/MODEL_CARD"'
+             f' && curl -fL --retry 3 -o /voices/en_US-lessac-medium.onnx "{VOICE_BASE}/en/en_US/lessac/medium/en_US-lessac-medium.onnx"'
+             f' && curl -fsSL --retry 3 -o /voices/en_US-lessac-medium.onnx.json "{VOICE_BASE}/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"'
+             f' && curl -fsSL --retry 3 -o /voices/MODEL_CARD_EN "{VOICE_BASE}/en/en_US/lessac/medium/MODEL_CARD"'
+             f' && curl -fL --retry 3 -o /voices/en_US-ryan-medium.onnx "{VOICE_BASE}/en/en_US/ryan/medium/en_US-ryan-medium.onnx"'
+             f' && curl -fsSL --retry 3 -o /voices/en_US-ryan-medium.onnx.json "{VOICE_BASE}/en/en_US/ryan/medium/en_US-ryan-medium.onnx.json"'
+         )
          .add_local_file('services/realtime/gateway/pipeline_core.py', '/root/pipeline_core.py')
          .add_local_file('services/realtime/media/youtube_source.py', '/root/youtube_source.py')
          .add_local_file('services/realtime/media/narration_audio.py', '/root/narration_audio.py')
          .add_local_file('services/realtime/speech/speech_context.py', '/root/speech_context.py')
-         .add_local_file('services/realtime/media/caption_timeline.py', '/root/caption_timeline.py'))
+         .add_local_file('services/realtime/media/caption_timeline.py', '/root/caption_timeline.py')
+         .add_local_file('services/realtime/tts/fast_tts.py', '/root/fast_tts.py'))
 app = modal.App('textone-pipeline', image=image)
 
 
@@ -18,6 +33,7 @@ app = modal.App('textone-pipeline', image=image)
               secrets=[modal.Secret.from_name('chatterbox-api-key')],
               env={'PIPELINE_APP_URL': 'https://textone.id.vn',
                    'REALTIME_API_URL': 'https://dtug20--resonance-realtime-speechservice-serve.modal.run',
+                   'FAST_TTS_API_URL': 'https://dtug20--textone-pipeline-serve.modal.run',
                    'VITERBOX_API_URL': 'https://dtug20--viterbox-tts-viterboxservice-serve.modal.run',
                    'CHATTERBOX_API_URL': 'https://dtug20--chatterbox-tts-chatterbox-serve.modal.run'})
 @modal.concurrent(max_inputs=8)
@@ -39,7 +55,7 @@ def serve():
     import traceback
     import wave
     import httpx
-    from fastapi import FastAPI, WebSocket
+    from fastapi import FastAPI, Request, WebSocket
     from fastapi.middleware.cors import CORSMiddleware
     from PySide6.QtCore import QThread
     from pipeline_core import Pipeline
@@ -67,6 +83,27 @@ def serve():
     @api.get('/health')
     def health():
         return {'ready': True, 'protocol': 2, 'workers': 'QThread', 'contextAware': True}
+
+    _fast_tts_mod = [None]
+    _fast_tts_lock = threading.Lock()
+
+    def _fast_tts():
+        if _fast_tts_mod[0] is None:
+            with _fast_tts_lock:
+                if _fast_tts_mod[0] is None:
+                    import fast_tts as _mod
+                    _fast_tts_mod[0] = _mod
+        return _fast_tts_mod[0]
+
+    @api.post('/analyze-voice')
+    async def analyze_voice_endpoint(request: Request):
+        mod = await asyncio.to_thread(_fast_tts)
+        return await mod.analyze_voice(request)
+
+    @api.post('/synthesize')
+    def synthesize_endpoint(payload: dict):
+        mod = _fast_tts()
+        return mod.synthesize(mod.SynthesisRequest(**payload))
 
     @api.websocket('/stream')
     async def stream(ws: WebSocket):
