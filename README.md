@@ -1,8 +1,6 @@
-# Resonance · TexTone
+# TexTone
 
-Resonance là ứng dụng tạo giọng nói từ văn bản và quản lý giọng đọc. **TexTone**
-là Chrome extension kết nối với Resonance để nhận dạng, dịch và phát thuyết minh
-Anh–Việt theo timestamp của video YouTube.
+TexTone là nền tảng tạo giọng nói từ văn bản (TTS), quản lý giọng đọc và thuyết minh video thời gian thực. **TexTone Chrome Extension** kết nối trực tiếp với hệ thống để nhận dạng, dịch, clone giọng người nói và phát thuyết minh Anh–Việt theo timestamp của video YouTube.
 
 ## Chức năng
 
@@ -67,7 +65,7 @@ openssl rand -hex 32
 Sau khi cài Modal CLI và đăng nhập tài khoản Modal, cấu hình secret `chatterbox-api-key` chứa `CHATTERBOX_API_KEY` trùng với máy chủ Resonance, rồi chạy:
 
 ```bash
-modal deploy realtime_speech.py
+modal deploy services/realtime/speech/realtime_speech.py
 ```
 
 Gán địa chỉ dịch vụ trả về cho `REALTIME_API_URL`. Chế độ thuyết minh còn cần hai endpoint Chatterbox/Viterbox đang hoạt động và giọng đọc có tệp mẫu trên R2.
